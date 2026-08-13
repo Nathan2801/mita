@@ -51,19 +51,17 @@ class MissingRequiredFlag(Exception):
     def __str__(self):
         return f"missing required flag: {self.flag["short"]}/{self.flag["long"]}"
 
-# FIXME: allow to pass more flags to MissingOrRequiredFlag.
-class MissingOrRequiredFlag(Exception):
-    """ Error when missing a subcommand or-required flag.
+class MissingOneOfRequiredFlags(Exception):
+    """ Error Error when one of the required flags is missing.
     """
-    def __init__(self, flag1, flag2, *args, **kwargs):
-        self.flag1 = flag1
-        self.flag2 = flag2
+    def __init__(self, flags=[], *args, **kwargs):
+        self.flags = flags
         super().__init__(*args, **kwargs)
 
     def __str__(self):
-        f1s, f2s = self.flag1["short"], self.flag2["short"]
-        f1l, f2l = self.flag1[ "long"], self.flag2[ "long"]
-        return f"missing required flag: {f1s}/{f1l} or {f2s}/{f2l}"
+        to_line = lambda flag: f"{flag["short"]}/{flag["long"]}"
+        flags_line = ", ".join(map(to_line, self.flags))
+        return "missing one of the required flags: " + flags_line
 
 class MultipleTasksFound(Exception):
     """ Error when multiple flag is not set and multiple tasks are filtered for
@@ -240,9 +238,9 @@ def program_check_required_flags(prg):
                 has_some = True
                 break
         if has_some == False:
-            flag1 = program_find_flag(prg, subcmd["required_flags_or"][0][0])
-            flag2 = program_find_flag(prg, subcmd["required_flags_or"][0][1])
-            raise MissingOrRequiredFlag(flag1, flag2)
+            find_flag = lambda name: program_find_flag(prg, name)
+            required_flags = list(map(find_flag, flags))
+            raise MissingOneOfRequiredFlags(required_flags)
 
 def program_parse_arguments(prg, args):
     """ Parse arguments into program and returns remaining arguments.
