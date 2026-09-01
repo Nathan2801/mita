@@ -300,6 +300,8 @@ def mita_program():
                            required_flags_or=[["id", "pattern", "status"]])
     program_add_subcommand(prg, "todo", "Mark task(s) as todo",
                            required_flags_or=[["id", "pattern", "status"]])
+    program_add_subcommand(prg, "file", "Print current tasks file")
+    program_add_subcommand(prg, "local", "Create local tasks file")
     # flags.
     program_add_flag(prg, "id", "-i", True,
                      "Select task by ID")
@@ -322,6 +324,10 @@ def mita_program():
 def mita_diretory():
     """ Returns mita directory path.
     """
+    path = os.getcwd()
+    if os.path.exists(os.path.join(path, "tasks.json")):
+        return path
+
     user = os.path.expanduser("~")
     return os.path.join(user, ".mita")
 
@@ -565,6 +571,17 @@ def mita_process(prg, tasks):
             mita_todo(tasks, opts)
         case "remove":
             mita_remove(tasks, opts)
+        case "file":
+            printx(mita_tasks_file())
+        case "local":
+            path = os.getcwd()
+            filepath = os.path.join(path, "tasks.json")
+
+            if not os.path.exists(filepath):
+                with open(filepath, "w") as file:
+                    json.dump({}, file, indent=2)
+
+            printx(filepath)
         case _:
             raise Exception("unreachable") # subcommand is checked at mita_opts
 
