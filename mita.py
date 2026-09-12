@@ -125,13 +125,12 @@ def program_add_subcommand(prg, *args, **kwargs):
 def program_add_alias(prg, alias, cmdname):
     """ Add a sub-command alias.
 
-        Returns True and None in case of success or False and error string in
-        case of error.
+        Returns None in case of success and error string in case of error.
     """
     if prg["subcommands"].get(cmdname) == None:
-        return False, f"unknown sub-command: {cmdname}"
+        return f"unknown sub-command: {cmdname}"
     prg["alias"][alias] = cmdname
-    return True, None
+    return None
 
 def program_get_subcommand_information(prg):
     """ Returns the subcommand information from the subcommand option.
@@ -222,12 +221,15 @@ def program_parse_arguments(prg, args):
     _, args = shift(args) # ignore program name.
     program_set_default_options(prg)
     args, err = program_set_subcommand(prg, args)
-    if err != None: raise Exception(err)
+    if err != None:
+        return None, err
     args, err = program_parse_flags(prg, args)
-    if err != None: raise Exception(err)
+    if err != None:
+        return None, err
     ok, err = program_check_required_flags(prg)
-    if not ok: raise Exception(err)
-    return args
+    if not ok:
+        return None, err
+    return args, None
 
 def program_flag_help_line(prg, flag):
     """ Build help line for a flag.
@@ -282,8 +284,6 @@ def mita_program():
     program_add_subcommand(prg, "add", "Add a task",
                            required_flags=["desc"])
     program_add_subcommand(prg, "list", "Lists tasks")
-    ok, err = program_add_alias(prg, "ls", "list")
-    if not ok: raise Exception(err)
     program_add_subcommand(prg, "remove", "Remove a task",
                            required_flags_or=[["id", "pattern", "status"]])
     program_add_subcommand(prg, "done", "Mark task(s) as done",
@@ -309,6 +309,9 @@ def mita_program():
                      "Print extra tasks information")
     program_add_flag(prg, "debug", "-b", False,
                      "Debug prints and python errors")
+    # aliases.
+    err = program_add_alias(prg, "ls", "list")
+    assert err == None, "we know for sure 'list' exists"
     return prg
 
 def mita_diretory():
@@ -485,7 +488,7 @@ def mita_set_status(tasks, opts, status):
 
     match filtered_tasks:
         case []:
-            raise Exception("task not found")
+            return "no task found"
         case [(id, task)]:
             set_status(id, task)
         case _:
@@ -559,19 +562,22 @@ def mita_process(prg, tasks):
     match opts["subcommand"]:
         case "add":
             mita_add(tasks, opts)
+            return None
         case "list":
             mita_list(tasks, opts)
+            return None
         case "done":
             err = mita_done(tasks, opts)
-            if err != None: raise Exception(err)
+            return err
         case "todo":
             err = mita_todo(tasks, opts)
-            if err != None: raise Exception(err)
+            return err
         case "remove":
             err = mita_remove(tasks, opts)
-            if err != None: raise Exception(err)
+            return err
         case "file":
             printx(mita_tasks_file())
+            return None
         case "local":
             path = os.getcwd()
             filepath = os.path.join(path, "tasks.json")
@@ -581,13 +587,16 @@ def mita_process(prg, tasks):
                     json.dump({}, file, indent=2)
 
             printx(filepath)
+            return None
         case _:
-            assert False, "invalid sub-command"
+            return "unknown sub-command"
 
 def main(args):
     prg = mita_program()
     try:
-        _ = program_parse_arguments(prg, args)
+        _, err = program_parse_arguments(prg, args)
+        if err != None:
+            raise Exception(err)
 
         if prg["opts"]["no-color"] == True:
             global no_color
@@ -610,7 +619,10 @@ def main(args):
         file = mita_tasks_file()
         tasks = mita_load_tasks(file)
 
-        mita_process(prg, tasks)
+        err = mita_process(prg, tasks)
+        if err != None:
+            raise Exception(err)
+
         mita_save_tasks(tasks, file)
     except Exception as e:
         if not catch_exception:
