@@ -13,18 +13,6 @@ DONE = "done"
 # -b/--debug flag.
 catch_exception = True
 
-class Unreachable(Exception):
-    """ Debug error only that should never raise for the user.
-    """
-    def __init__(self, reason="", *args, **kwargs):
-        self.reason = reason
-        super().__init__(*args, **kwargs)
-
-    def __str__(self):
-        if self.reason == "":
-            return "no reason provided"
-        return f"{self.reason}"
-
 class MissingSubcommand(Exception):
     """ Error when missing subcommand.
     """
@@ -460,7 +448,7 @@ def mita_list(tasks, opts):
         elif task["status"] == DONE:
             done_task_count += 1
         else:
-            raise Exception("unreachable")
+            assert False, "invalid task status"
 
     printx(f"Listing {len(filtered_tasks)} of {total_tasks} tasks", end="")
     printx(f", {done_task_count} ", end="")
@@ -525,7 +513,7 @@ def mita_print(task, id=None, opts={}):
         color = None if opts["no-color"] else "yellow"
         printx("todo: ", color=color, end="")
     else:
-        raise Exception("unreachable")
+        assert False, "invalid task status"
 
     desc, *rest = task["desc"].split("//") # remove comments
 
@@ -583,7 +571,7 @@ def mita_process(prg, tasks):
 
             printx(filepath)
         case _:
-            raise Exception("unreachable") # subcommand is checked at mita_opts
+            assert False, "invalid sub-command"
 
 def main(args):
     prg = mita_program()
