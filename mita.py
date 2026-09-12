@@ -13,51 +13,6 @@ DONE = "done"
 # -b/--debug flag.
 catch_exception = True
 
-class MissingSubcommand(Exception):
-    """ Error when missing subcommand.
-    """
-    def __str__(self):
-        return "missing subcommand"
-
-class UnknownSubcommand(Exception):
-    """ Error when a subcommand is not known.
-    """
-    def __init__(self, subcommand, *args, **kwargs):
-        self.subcommand = subcommand
-        super().__init__(*args, **kwargs)
-
-    def __str__(self):
-        return f"unknown subcommand: {self.subcommand}"
-
-class MissingRequiredFlag(Exception):
-    """ Error when missing a subcommand required flag.
-    """
-    def __init__(self, flag, *args, **kwargs):
-        self.flag = flag
-        super().__init__(*args, **kwargs)
-
-    def __str__(self):
-        return f"missing required flag: {self.flag["short"]}/{self.flag["long"]}"
-
-class MissingOneOfRequiredFlags(Exception):
-    """ Error Error when one of the required flags is missing.
-    """
-    def __init__(self, flags=[], *args, **kwargs):
-        self.flags = flags
-        super().__init__(*args, **kwargs)
-
-    def __str__(self):
-        to_line = lambda flag: f"{flag["short"]}/{flag["long"]}"
-        flags_line = ", ".join(map(to_line, self.flags))
-        return "missing one of the required flags: " + flags_line
-
-class MultipleTasksFound(Exception):
-    """ Error when multiple flag is not set and multiple tasks are filtered for
-        certain operation.
-    """
-    def __str__(self):
-        return "multiple tasks found, perhaps you want set -m/--multiple flag"
-
 def shift(xs):
     """ Returns the first and remaining itens of a list.
     """
@@ -163,10 +118,14 @@ def program_add_subcommand(prg, *args, **kwargs):
 
 def program_add_alias(prg, alias, cmdname):
     """ Add a sub-command alias.
+
+        Returns True and None in case of success or False and error string in
+        case of error.
     """
     if prg["subcommands"].get(cmdname) == None:
-        raise UnknownSubcommand(cmdname)
+        return False, f"unknown sub-command: {cmdname}"
     prg["alias"][alias] = cmdname
+    return True, None
 
 def program_get_subcommand_information(prg):
     """ Returns the subcommand information from the subcommand option.
@@ -183,21 +142,27 @@ def program_set_default_options(prg):
 
 def program_set_subcommand(prg, args):
     """ Set program subcommand option.
+
+        Returns remaining arguments and None in case of success, or None and
+        error string in case of error.
     """
     cmdname, args = shift(args)
     if cmdname == None:
-        raise MissingSubcommand()
+        return None, "missing subcommand"
     alias = prg["alias"].get(cmdname)
     if alias != None:
         cmdname = alias
     cmd = prg["subcommands"].get(cmdname)
     if cmd == None:
-        raise UnknownSubcommand(cmdname)
+        return None, f"unknown subcommand: {cmdname}"
     prg["opts"]["subcommand"] = cmdname
-    return args
+    return args, None
 
 def program_parse_flags(prg, args):
     """ Parses remaining arguments as flags.
+
+        Returns remaining arguments and None in case of success, or None and
+        error string in case of error.
     """
     while len(args) > 0:
         found = None
@@ -208,16 +173,16 @@ def program_parse_flags(prg, args):
                 found = itflag
 
         if found == None:
-            raise Exception(f"invalid flag: {flag}")
+            return None, f"invalid flag: {flag}"
 
         name = found["name"]
         if found["require_value"]:
             if len(args) < 1:
-                raise Exception(f"required value for flag: {flag}")
+                return None, f"required value for flag: {flag}"
             prg["opts"][name], args = shift(args)
         else:
             prg["opts"][name] = True
-    return args
+    return args, None
 
 def program_check_required_flags(prg):
     """ Check subcommand required flags.
@@ -229,7 +194,7 @@ def program_check_required_flags(prg):
     for flagname in subcmd["required_flags"]:
         if opts[flagname] == None:
             flag = program_find_flag(prg, flagname)
-            raise MissingRequiredFlag(flag)
+            return False, f"missing required flag: {flag}"
 
     for flags in subcmd["required_flags_or"]:
         has_some = False
@@ -240,16 +205,22 @@ def program_check_required_flags(prg):
         if has_some == False:
             find_flag = lambda name: program_find_flag(prg, name)
             required_flags = list(map(find_flag, flags))
-            raise MissingOneOfRequiredFlags(required_flags)
+            flag_name_1 = required_flags[0]["name"]
+            flag_name_2 = required_flags[1]["name"]
+            return False, f"missing one of flags: {flag_name_1} or {flag_name_2}"
+    return True, None
 
 def program_parse_arguments(prg, args):
     """ Parse arguments into program and returns remaining arguments.
     """
     _, args = shift(args) # ignore program name.
     program_set_default_options(prg)
-    args = program_set_subcommand(prg, args)
-    args = program_parse_flags(prg, args)
-    program_check_required_flags(prg)
+    args, err = program_set_subcommand(prg, args)
+    if err != None: raise Exception(err)
+    args, err = program_parse_flags(prg, args)
+    if err != None: raise Exception(err)
+    ok, err = program_check_required_flags(prg)
+    if not ok: raise Exception(err)
     return args
 
 def program_flags_lines(prg):
@@ -294,7 +265,8 @@ def mita_program():
     program_add_subcommand(prg, "add", "Add a task",
                            required_flags=["desc"])
     program_add_subcommand(prg, "list", "Lists tasks")
-    program_add_alias(prg, "ls", "list")
+    ok, err = program_add_alias(prg, "ls", "list")
+    if not ok: raise Exception(err)
     program_add_subcommand(prg, "remove", "Remove a task",
                            required_flags_or=[["id", "pattern", "status"]])
     program_add_subcommand(prg, "done", "Mark task(s) as done",
@@ -426,22 +398,25 @@ def mita_add(tasks, opts):
 
 def mita_remove(tasks, opts):
     """ Remove a task from tasks.
+
+        Returns None in case of success and a error message in case of error.
     """
     filtered_tasks = list(mita_filter(tasks, opts))
     match filtered_tasks:
         case []:
-            raise MultipleTasksFound()
+            return "multiple tasks found (hint: use -m flag)"
         case [(id, _)]:
             printx("Removed tasks:")
             mita_print(tasks[id], id, opts)
             del tasks[id]
         case _:
             if opts["multiple"] == False:
-                raise MultipleTasksFound()
+                return "multiple tasks found (hint: use -m flag)"
             printx("Removed tasks:")
             for id, _ in filtered_tasks:
                 mita_print(tasks[id], id, opts)
                 del tasks[id]
+    return None
 
 def mita_list(tasks, opts):
     """ List tasks in tasks.
@@ -479,6 +454,8 @@ def mita_list(tasks, opts):
 
 def mita_set_status(tasks, opts, status):
     """ Set status of filtered tasks.
+
+        Returns None in case of success and error string in case of error.
     """
     filtered_tasks = list(mita_filter(tasks, opts))
 
@@ -496,9 +473,10 @@ def mita_set_status(tasks, opts, status):
             set_status(id, task)
         case _:
             if opts["multiple"] == False:
-                raise MultipleTasksFound()
+                return "multiple task found (hint: use -m flag)"
             for id, task in filtered_tasks:
                 set_status(id, task)
+    return None
 
 def mita_done(tasks, opts):
     """ Set filtered tasks as done.
@@ -567,11 +545,14 @@ def mita_process(prg, tasks):
         case "list":
             mita_list(tasks, opts)
         case "done":
-            mita_done(tasks, opts)
+            err = mita_done(tasks, opts)
+            if err != None: raise Exception(err)
         case "todo":
-            mita_todo(tasks, opts)
+            err = mita_todo(tasks, opts)
+            if err != None: raise Exception(err)
         case "remove":
-            mita_remove(tasks, opts)
+            err = mita_remove(tasks, opts)
+            if err != None: raise Exception(err)
         case "file":
             printx(mita_tasks_file())
         case "local":
