@@ -229,29 +229,40 @@ def program_parse_arguments(prg, args):
     if not ok: raise Exception(err)
     return args
 
+def program_flag_help_line(prg, flag):
+    """ Build help line for a flag.
+    """
+    out = " " * 4
+    out += flag["long"]
+    out += "/"
+    out += flag["short"]
+    out += " " * (24 - len(out))
+    out += flag["help"]
+    return out
+
 def program_flags_lines(prg):
     """ Returns a list of lines containing usage-like flag options.
     """
     lines = ["FLAGS:"]
     for flag in prg["flags"]:
-        indent = " " * 4
-        long = flag["long"]
-        short = flag["short"]
-        space = " " * (20 - len(short) - len(long) - 2) # minus 2 because '/' between short and long flags.
-        help = flag["help"]
-        lines.append(f"{indent}{long}/{short}{space}{help}")
+        lines.append(program_flag_help_line(prg, flag))
     return lines
+
+def program_subcommand_help_line(prg, subcmd):
+    """ Build help line for a sub-command.
+    """
+    out = " " * 4
+    out += subcmd["name"]
+    out += " " * (24 - len(out))
+    out += subcmd["help"]
+    return out
 
 def program_subcommand_lines(prg):
     """ Returns a list of lines containing usage-like subcommand options.
     """
     lines = ["SUBCOMMANDS:"]
     for subcmd in prg["subcommands"].values():
-        indent = " " * 4
-        name = subcmd["name"]
-        help = subcmd["help"]
-        space = " " * (20 - len(name) - 1)
-        lines.append(f"{indent}{name}{space}{help}")
+        lines.append(program_subcommand_help_line(prg, subcmd))
     return lines
 
 def program_usage_string(prg):
