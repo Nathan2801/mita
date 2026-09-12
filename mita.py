@@ -80,7 +80,7 @@ def flag(name, short, require_value=False, help=""):
         "require_value": require_value,
     }
 
-def subcommand(name, help, required_flags=[], required_flags_or=[]):
+def subcommand(name, help, required_flags=[], require_one_of=[]):
     """ Returns a subcommand.
     """
     return name, {
@@ -88,8 +88,8 @@ def subcommand(name, help, required_flags=[], required_flags_or=[]):
         "help": help,
         # Required flags.
         "required_flags": required_flags,
-        # Required flags but allows flag A or flag B.
-        "required_flags_or": required_flags_or,
+        # Allow the program to check if any of the following flags exists.
+        "require_one_of": require_one_of,
     }
 
 def program(name):
@@ -108,11 +108,11 @@ def program_add_flag(prg, *args, **kwargs):
     """
     prg["flags"].append(flag(*args, **kwargs))
 
-def program_find_flag(prg, flagname):
+def program_find_flag(prg, flag_name):
     """ Returns the flag information from a flag name.
     """
     for flag in prg["flags"]:
-        if flag["name"] == flagname:
+        if flag["name"] == flag_name:
             return flag
     return None
 
@@ -189,6 +189,23 @@ def program_parse_flags(prg, args):
             prg["opts"][name] = True
     return args, None
 
+def error_require_one_of_flags(prg, subcmd):
+    """ Build error message for missing one of the required flags.
+    """
+    out = "missing one of the following flags: "
+    required_flags = subcmd["require_one_of"]
+    for i in range(len(required_flags)):
+        flag_name = required_flags[i]
+        flag = program_find_flag(prg, flag_name)
+        out += flag["long"]
+        out += "/"
+        out += flag["short"]
+        if i < len(required_flags) - 2:
+            out += ", "
+        elif i < len(required_flags) - 1:
+            out += " or "
+    return out
+
 def program_check_required_flags(prg):
     """ Check subcommand required flags.
     """
@@ -201,18 +218,16 @@ def program_check_required_flags(prg):
             flag = program_find_flag(prg, flagname)
             return False, f"missing required flag: {flag}"
 
-    for flags in subcmd["required_flags_or"]:
-        has_some = False
-        for flagname in flags:
-            if opts[flagname] != None:
-                has_some = True
+    require_one_of = subcmd["require_one_of"]
+    if len(require_one_of) > 0:
+        has_one = False
+        for flag_name in require_one_of:
+            if prg["opts"][flag_name] != None:
+                has_one = True
                 break
-        if has_some == False:
-            find_flag = lambda name: program_find_flag(prg, name)
-            required_flags = list(map(find_flag, flags))
-            flag_name_1 = required_flags[0]["name"]
-            flag_name_2 = required_flags[1]["name"]
-            return False, f"missing one of flags: {flag_name_1} or {flag_name_2}"
+        if has_one == False:
+            return False, error_require_one_of_flags(prg, subcmd)
+
     return True, None
 
 def program_parse_arguments(prg, args):
@@ -285,11 +300,11 @@ def mita_program():
                            required_flags=["desc"])
     program_add_subcommand(prg, "list", "Lists tasks")
     program_add_subcommand(prg, "remove", "Remove a task",
-                           required_flags_or=[["id", "pattern", "status"]])
+                           require_one_of=["id", "pattern", "status"])
     program_add_subcommand(prg, "done", "Mark task(s) as done",
-                           required_flags_or=[["id", "pattern", "status"]])
+                           require_one_of=["id", "pattern", "status"])
     program_add_subcommand(prg, "todo", "Mark task(s) as todo",
-                           required_flags_or=[["id", "pattern", "status"]])
+                           require_one_of=[["id", "pattern", "status"]])
     program_add_subcommand(prg, "file", "Print current tasks file")
     program_add_subcommand(prg, "local", "Create local tasks file")
     # flags.
