@@ -8,6 +8,9 @@ import json
 TODO = "todo"
 DONE = "done"
 
+# Defines whether printx() should print colored output or not.
+no_color = False
+
 # When this is False we raise any exception as an usual python exception,
 # otherwise we only print a user-friendly error message. Can be setted with
 # -b/--debug flag.
@@ -36,11 +39,14 @@ def printx(*args, **kwargs):
         "reset": 39,
     }
 
-    color = kwargs.get("color", None)
-    if color:
+    color = None
+    if no_color == False:
+        color = kwargs.get("color")
+        if color:
+            assert color in colors, f"invalid color: {color}"
+
+    if "color" in kwargs:
         del kwargs["color"] # make sure we don't pass it to builtin print.
-    if color and color not in colors:
-        raise Exception(f"invalid color: {color}")
 
     if color:
         co = colors[color]
@@ -571,6 +577,10 @@ def main(args):
     prg = mita_program()
     try:
         _ = program_parse_arguments(prg, args)
+
+        if prg["opts"]["no-color"] == True:
+            global no_color
+            no_color = True
 
         if prg["opts"]["debug"] == True:
             global catch_exception
