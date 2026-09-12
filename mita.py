@@ -138,6 +138,7 @@ def program(name):
         "name": name,
         "opts": {},
         "flags": [],
+        "alias": {},
         "subcommands": {},
     }
 
@@ -160,6 +161,13 @@ def program_add_subcommand(prg, *args, **kwargs):
     name, subcmd = subcommand(*args, **kwargs)
     prg["subcommands"][name] = subcmd
 
+def program_add_alias(prg, alias, cmdname):
+    """ Add a sub-command alias.
+    """
+    if prg["subcommands"].get(cmdname) == None:
+        raise UnknownSubcommand(cmdname)
+    prg["alias"][alias] = cmdname
+
 def program_get_subcommand_information(prg):
     """ Returns the subcommand information from the subcommand option.
     """
@@ -179,7 +187,11 @@ def program_set_subcommand(prg, args):
     cmdname, args = shift(args)
     if cmdname == None:
         raise MissingSubcommand()
-    if cmdname not in prg["subcommands"]:
+    alias = prg["alias"].get(cmdname)
+    if alias != None:
+        cmdname = alias
+    cmd = prg["subcommands"].get(cmdname)
+    if cmd == None:
         raise UnknownSubcommand(cmdname)
     prg["opts"]["subcommand"] = cmdname
     return args
@@ -282,6 +294,7 @@ def mita_program():
     program_add_subcommand(prg, "add", "Add a task",
                            required_flags=["desc"])
     program_add_subcommand(prg, "list", "Lists tasks")
+    program_add_alias(prg, "ls", "list")
     program_add_subcommand(prg, "remove", "Remove a task",
                            required_flags_or=[["id", "pattern", "status"]])
     program_add_subcommand(prg, "done", "Mark task(s) as done",
