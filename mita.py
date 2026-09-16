@@ -106,13 +106,13 @@ class SubCommand:
             Format:
             [    ][cmd][ ][(alias?)][                        ][help]
         """
-        out = " " * 4
-        out += self.name
+        b = " " * 4
+        b += self.name
         if len(self.aliases) > 0:
-            out += f" ({", ".join(self.aliases)})"
-        out += " " * (24 - len(out))
-        out += self.help
-        return out
+            b += f" ({", ".join(self.aliases)})"
+        b += " " * (24 - len(b))
+        b += self.help
+        return b
 
 def program(name):
     """ Returns a terminal program.
