@@ -80,17 +80,28 @@ def flag(name, short, require_value=False, help=""):
         "require_value": require_value,
     }
 
-def subcommand(name, help, required_flags=[], require_one_of=[]):
-    """ Returns a subcommand.
-    """
-    return name, {
-        "name": name,
-        "help": help,
-        "aliases": [],
-        "required_flags": required_flags,
-        # Allow the program to check if any of the following flags exists.
-        "require_one_of": require_one_of,
-    }
+class SubCommand:
+    def __init__(self, name, help="", required_flags=[], require_one_of=[]):
+        """ Initializes SubCommand.
+        """
+        self.name = name
+        self.help = help
+        self.aliases = []
+        self.required_flags = required_flags
+        self.require_one_of = require_one_of
+
+    def build_help_line(self):
+        """ Builds a help line for this command.
+            Format:
+            [    ][cmd][ ][(alias?)][                        ][help]
+        """
+        out = " " * 4
+        out += self.name
+        if len(self.aliases) > 0:
+            out += f" ({", ".join(self.aliases)})"
+        out += " " * (24 - len(out))
+        out += self.help
+        return out
 
 def program(name):
     """ Returns a terminal program.
@@ -118,8 +129,8 @@ def program_find_flag(prg, flag_name):
 def program_add_subcommand(prg, *args, **kwargs):
     """ Add a program subcommand.
     """
-    name, subcmd = subcommand(*args, **kwargs)
-    prg["subcommands"][name] = subcmd
+    cmd = SubCommand(*args, **kwargs)
+    prg["subcommands"][cmd.name] = cmd
 
 def program_add_alias(prg, cmdname, alias):
     """ Add a sub-command alias.
@@ -129,7 +140,7 @@ def program_add_alias(prg, cmdname, alias):
     cmd = prg["subcommands"].get(cmdname)
     if cmd == None:
         return f"unknown subcommand: {cmdname}"
-    cmd["aliases"].append(alias)
+    cmd.aliases.append(alias)
     return None
 
 def program_get_subcommand_information(prg):
@@ -154,9 +165,10 @@ def program_set_subcommand(prg, args):
     cmdname, args = shift(args)
     if cmdname == None:
         return None, "missing subcommand"
-    alias = prg["alias"].get(cmdname)
-    if alias != None:
-        cmdname = alias
+    for cmd in prg["subcommands"].values():
+        if cmdname in cmd.aliases:
+            cmdname = cmd.name
+            break
     cmd = prg["subcommands"].get(cmdname)
     if cmd == None:
         return None, f"unknown subcommand: {cmdname}"
@@ -193,7 +205,7 @@ def error_require_one_of_flags(prg, subcmd):
     """ Build error message for missing one of the required flags.
     """
     out = "missing one of the following flags: "
-    required_flags = subcmd["require_one_of"]
+    required_flags = subcmd.require_one_of
     for i in range(len(required_flags)):
         flag_name = required_flags[i]
         flag = program_find_flag(prg, flag_name)
@@ -213,12 +225,12 @@ def program_check_required_flags(prg):
     flags = prg["flags"]
     subcmd = program_get_subcommand_information(prg)
 
-    for flagname in subcmd["required_flags"]:
+    for flagname in subcmd.required_flags:
         if opts[flagname] == None:
             flag = program_find_flag(prg, flagname)
             return False, f"missing required flag: {flag}"
 
-    require_one_of = subcmd["require_one_of"]
+    require_one_of = subcmd.require_one_of
     if len(require_one_of) > 0:
         has_one = False
         for flag_name in require_one_of:
@@ -269,31 +281,32 @@ def program_subcommand_help_line(prg, subcmd):
     """ Build help line for a sub-command.
     """
     out = " " * 4
-    out += subcmd["name"]
-    if len(subcmd["aliases"]) > 0:
-        out += f" ({", ".join(subcmd["aliases"])})"
+    out += subcmd.name
+    if len(subcmd.aliases) > 0:
+        out += f" ({", ".join(subcmd.aliases)})"
     out += " " * (24 - len(out))
-    out += subcmd["help"]
+    out += subcmd.help
     return out
 
 def program_subcommand_lines(prg):
     """ Returns a list of lines containing usage-like subcommand options.
     """
-    lines = ["SUBCOMMANDS:"]
+    b = "SUBCOMMANDS:\n"
     for subcmd in prg["subcommands"].values():
-        lines.append(program_subcommand_help_line(prg, subcmd))
-    return lines
+        b += subcmd.build_help_line()
+        b += "\n"
+    return b
 
 def program_usage_string(prg):
     """ Returns the program usage message.
     """
-    return "\n".join([
-        "usage: mita [SUBCOMMAND] [FLAGS...]",
-        "",
-        *program_subcommand_lines(prg),
-        "",
-        *program_flags_lines(prg),
-    ])
+    b = "usage: mita [SUBCOMMAND] [FLAGS...]\n"
+    b += "\n"
+    b += program_subcommand_lines(prg)
+    b += "\n"
+    b += "\n".join(program_flags_lines(prg))
+    b += "\n"
+    return b
 
 def mita_program():
     """ Create mita default program.
