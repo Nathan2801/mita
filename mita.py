@@ -204,8 +204,8 @@ def program_parse_flags(prg, args):
         if found == None:
             return None, f"invalid flag: {flag}"
 
-        name = found["name"]
-        if found["require_value"]:
+        name = found.name
+        if found.require_value:
             if len(args) < 1:
                 return None, f"required value for flag: {flag}"
             prg["opts"][name], args = shift(args)
