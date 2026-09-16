@@ -330,7 +330,9 @@ def mita_program():
                      help="Debug prints and python errors")
     # aliases.
     err = program_add_alias(prg, "list", "ls")
-    assert err == None, "we know for sure \"list\" exists"
+    assert err == None
+    err = program_add_alias(prg, "remove", "rm")
+    assert err == None
     return prg
 
 def mita_diretory():
