@@ -311,7 +311,7 @@ def mita_program():
     program_add_subcommand(prg, "done", "Mark task(s) as done",
                            require_one_of=["id", "pattern", "status"])
     program_add_subcommand(prg, "todo", "Mark task(s) as todo",
-                           require_one_of=[["id", "pattern", "status"]])
+                           require_one_of=["id", "pattern", "status"])
     program_add_subcommand(prg, "file", "Print current tasks file")
     program_add_subcommand(prg, "local", "Create local tasks file")
     # flags.
