@@ -270,17 +270,6 @@ def program_parse_arguments(prg, args):
         return None, err
     return args, None
 
-def program_subcommand_help_line(prg, subcmd):
-    """ Build help line for a sub-command.
-    """
-    out = " " * 4
-    out += subcmd.name
-    if len(subcmd.aliases) > 0:
-        out += f" ({", ".join(subcmd.aliases)})"
-    out += " " * (24 - len(out))
-    out += subcmd.help
-    return out
-
 def program_usage_string(prg):
     """ Returns the program usage message.
     """
