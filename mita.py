@@ -68,17 +68,28 @@ def logerror(*args, **kwargs):
     printx("ERROR: ", end="", color="red")
     printx(*args, **kwargs)
 
-def flag(name, short, require_value=False, help=""):
-    """ Returns a flag.
-    """
-    return {
-        "name": name,
-        "help": help,
-        "long": "--" + name,
-        "short": short,
-        # Whether or not it requires a value.
-        "require_value": require_value,
-    }
+class Flag:
+    def __init__(self, name, short="", help="", require_value=False):
+        """ Initializes Flag.
+        """
+        self.name = name
+        self.help = help
+        self.long = "--" + name
+        self.short = short
+        self.require_value = require_value
+
+    def build_help_line(self):
+        """ Builds a help line for this command.
+            Format:
+            [    ][flag][/][short][                        ][help]
+        """
+        b = " " * 4
+        b += self.long
+        b += "/"
+        b += self.short
+        b += " " * (24 - len(b))
+        b += self.help
+        return b
 
 class SubCommand:
     def __init__(self, name, help="", required_flags=[], require_one_of=[]):
@@ -116,13 +127,14 @@ def program(name):
 def program_add_flag(prg, *args, **kwargs):
     """ Add a program flag.
     """
-    prg["flags"].append(flag(*args, **kwargs))
+    flag = Flag(*args, **kwargs)
+    prg["flags"].append(flag)
 
 def program_find_flag(prg, flag_name):
     """ Returns the flag information from a flag name.
     """
     for flag in prg["flags"]:
-        if flag["name"] == flag_name:
+        if flag.name == flag_name:
             return flag
     return None
 
@@ -152,8 +164,8 @@ def program_set_default_options(prg):
     """ Set default program options values.
     """
     for flag in prg["flags"]:
-        name = flag["name"]
-        value = None if flag["require_value"] else False
+        name = flag.name
+        value = None if flag.require_value else False
         prg["opts"][name] = value
 
 def program_set_subcommand(prg, args):
@@ -186,7 +198,7 @@ def program_parse_flags(prg, args):
         flag, args = shift(args)
 
         for itflag in prg["flags"]:
-            if itflag["short"] == flag or itflag["long"] == flag:
+            if itflag.short == flag or itflag.long == flag:
                 found = itflag
 
         if found == None:
@@ -209,9 +221,9 @@ def error_require_one_of_flags(prg, subcmd):
     for i in range(len(required_flags)):
         flag_name = required_flags[i]
         flag = program_find_flag(prg, flag_name)
-        out += flag["long"]
+        out += flag.long
         out += "/"
-        out += flag["short"]
+        out += flag.short
         if i < len(required_flags) - 2:
             out += ", "
         elif i < len(required_flags) - 1:
@@ -258,25 +270,6 @@ def program_parse_arguments(prg, args):
         return None, err
     return args, None
 
-def program_flag_help_line(prg, flag):
-    """ Build help line for a flag.
-    """
-    out = " " * 4
-    out += flag["long"]
-    out += "/"
-    out += flag["short"]
-    out += " " * (24 - len(out))
-    out += flag["help"]
-    return out
-
-def program_flags_lines(prg):
-    """ Returns a list of lines containing usage-like flag options.
-    """
-    lines = ["FLAGS:"]
-    for flag in prg["flags"]:
-        lines.append(program_flag_help_line(prg, flag))
-    return lines
-
 def program_subcommand_help_line(prg, subcmd):
     """ Build help line for a sub-command.
     """
@@ -288,23 +281,20 @@ def program_subcommand_help_line(prg, subcmd):
     out += subcmd.help
     return out
 
-def program_subcommand_lines(prg):
-    """ Returns a list of lines containing usage-like subcommand options.
-    """
-    b = "SUBCOMMANDS:\n"
-    for subcmd in prg["subcommands"].values():
-        b += subcmd.build_help_line()
-        b += "\n"
-    return b
-
 def program_usage_string(prg):
     """ Returns the program usage message.
     """
     b = "usage: mita [SUBCOMMAND] [FLAGS...]\n"
     b += "\n"
-    b += program_subcommand_lines(prg)
+    b += "SUBCOMMANDS:\n"
+    for subcmd in prg["subcommands"].values():
+        b += subcmd.build_help_line()
+        b += "\n"
     b += "\n"
-    b += "\n".join(program_flags_lines(prg))
+    b += "FLAGS:\n"
+    for flag in prg["flags"]:
+        b += flag.build_help_line()
+        b += "\n"
     b += "\n"
     return b
 
@@ -325,22 +315,30 @@ def mita_program():
     program_add_subcommand(prg, "file", "Print current tasks file")
     program_add_subcommand(prg, "local", "Create local tasks file")
     # flags.
-    program_add_flag(prg, "id", "-i", True,
-                     "Select task by ID")
-    program_add_flag(prg, "desc", "-d", True,
-                     "Define task description")
-    program_add_flag(prg, "status", "-s", True,
-                     "Filter by task status: done|todo")
-    program_add_flag(prg, "pattern", "-p", True,
-                     "Search pattern for tasks")
-    program_add_flag(prg, "multiple", "-m", False,
-                     "Allow operate on multiple tasks")
-    program_add_flag(prg, "no-color", "-n", False,
-                     "Disable terminal colors output")
-    program_add_flag(prg, "verbose", "-v", False,
-                     "Print extra tasks information")
-    program_add_flag(prg, "debug", "-b", False,
-                     "Debug prints and python errors")
+    program_add_flag(prg, "id", "-i",
+                     require_value=True,
+                     help="Select task by ID")
+    program_add_flag(prg, "desc", "-d",
+                     require_value=True,
+                     help="Define task description")
+    program_add_flag(prg, "status", "-s",
+                     require_value=True,
+                     help="Filter by task status: done|todo")
+    program_add_flag(prg, "pattern", "-p",
+                     require_value=True,
+                     help="Search pattern for tasks")
+    program_add_flag(prg, "multiple", "-m",
+                     require_value=False,
+                     help="Allow operate on multiple tasks")
+    program_add_flag(prg, "no-color", "-n",
+                     require_value=False,
+                     help="Disable terminal colors output")
+    program_add_flag(prg, "verbose", "-v",
+                     require_value=False,
+                     help="Print extra tasks information")
+    program_add_flag(prg, "debug", "-b",
+                     require_value=False,
+                     help="Debug prints and python errors")
     # aliases.
     err = program_add_alias(prg, "list", "ls")
     assert err == None, "we know for sure \"list\" exists"
