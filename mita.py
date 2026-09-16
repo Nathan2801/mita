@@ -11,11 +11,6 @@ DONE = "done"
 # Defines whether printx() should print colored output or not.
 no_color = False
 
-# When this is False we raise any exception as an usual python exception,
-# otherwise we only print a user-friendly error message. Can be setted with
-# -b/--debug flag.
-catch_exception = True
-
 def shift(xs):
     """ Returns the first and remaining itens of a list.
     """
@@ -325,9 +320,6 @@ def mita_program():
     program_add_flag(prg, "verbose", "-v",
                      require_value=False,
                      help="Print extra tasks information")
-    program_add_flag(prg, "debug", "-b",
-                     require_value=False,
-                     help="Debug prints and python errors")
     # aliases.
     err = program_add_alias(prg, "list", "ls")
     assert err == None
@@ -480,15 +472,12 @@ def mita_list(tasks, opts):
             assert False, "invalid task status"
 
     printx(f"Listing {len(filtered_tasks)} of {total_tasks} tasks", end="")
-    printx(f", {done_task_count} ", end="")
 
-    color = None if opts["no-color"] else "green"
-    printx("done", color=color, end="")
+    printx(f", {done_task_count} ", end="")
+    printx("done", color="green", end="")
 
     printx(f", {todo_task_count} ", end="")
-
-    color = None if opts["no-color"] else "yellow"
-    printx("todo", color=color)
+    printx("todo", color="yellow")
 
     for id, task in filtered_tasks:
         mita_print(task, id if opts["verbose"] else None, opts)
@@ -503,7 +492,6 @@ def mita_set_status(tasks, opts, status):
     def set_status(id, task):
         task["status"] = status
         printx("Task ", end="")
-        color = None if opts["no-color"] else "blue"
         printx(f"#{id}", color="blue", end="")
         printx(f" set to {status}")
 
@@ -535,15 +523,12 @@ def mita_print(task, id=None, opts={}):
         Comments and task ID are omitted if {opts["verbose"]} is False.
     """
     if id is not None:
-        color = None if opts["no-color"] else "blue"
-        printx(f"#{id}:", color=color, end="")
+        printx(f"#{id}:", color="blue", end="")
 
     if task["status"] == DONE:
-        color = None if opts["no-color"] else "green"
-        printx("done: ", color=color, end="")
+        printx("done: ", color="green", end="")
     elif task["status"] == TODO:
-        color = None if opts["no-color"] else "yellow"
-        printx("todo: ", color=color, end="")
+        printx("todo: ", color="yellow", end="")
     else:
         assert False, "invalid task status"
 
@@ -551,11 +536,9 @@ def mita_print(task, id=None, opts={}):
 
     if opts["verbose"]:
         printx(desc, end="")
-        color = None if opts["no-color"] else "blue"
-        printx("//", color=color, end="")
+        printx("//", color="blue", end="")
         for whatever in rest:
-            color = None if opts["no-color"] else "blue"
-            printx(whatever, color=color, end="")
+            printx(whatever, color="blue", end="")
         printx()
         return
 
@@ -623,12 +606,6 @@ def main(args):
             global no_color
             no_color = True
 
-        if prg["opts"]["debug"] == True:
-            global catch_exception
-            catch_exception = False
-            printx("DEBUG:", color="cyan")
-            printx(json.dumps(opts, indent=4))
-
         created = mita_create_directory()
         if created:
             loginfo(f"mita directory created at {mita_diretory()}")
@@ -646,7 +623,8 @@ def main(args):
 
         mita_save_tasks(tasks, file)
     except Exception as e:
-        if not catch_exception:
+        mita_debug = os.getenv("MITA_DEBUG")
+        if mita_debug == "1":
             raise e
 
         logerror(e)
