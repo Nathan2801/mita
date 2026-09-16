@@ -102,7 +102,7 @@ class SubCommand:
         self.require_one_of = require_one_of
 
     def build_help_line(self):
-        """ Builds a help line for this command.
+        """ Builds a help line for this flag.
             Format:
             [    ][cmd][ ][(alias?)][                        ][help]
         """
