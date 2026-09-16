@@ -86,7 +86,7 @@ def subcommand(name, help, required_flags=[], require_one_of=[]):
     return name, {
         "name": name,
         "help": help,
-        # Required flags.
+        "aliases": [],
         "required_flags": required_flags,
         # Allow the program to check if any of the following flags exists.
         "require_one_of": require_one_of,
@@ -99,7 +99,6 @@ def program(name):
         "name": name,
         "opts": {},
         "flags": [],
-        "alias": {},
         "subcommands": {},
     }
 
@@ -122,14 +121,15 @@ def program_add_subcommand(prg, *args, **kwargs):
     name, subcmd = subcommand(*args, **kwargs)
     prg["subcommands"][name] = subcmd
 
-def program_add_alias(prg, alias, cmdname):
+def program_add_alias(prg, cmdname, alias):
     """ Add a sub-command alias.
 
         Returns None in case of success and error string in case of error.
     """
-    if prg["subcommands"].get(cmdname) == None:
-        return f"unknown sub-command: {cmdname}"
-    prg["alias"][alias] = cmdname
+    cmd = prg["subcommands"].get(cmdname)
+    if cmd == None:
+        return f"unknown subcommand: {cmdname}"
+    cmd["aliases"].append(alias)
     return None
 
 def program_get_subcommand_information(prg):
@@ -270,6 +270,8 @@ def program_subcommand_help_line(prg, subcmd):
     """
     out = " " * 4
     out += subcmd["name"]
+    if len(subcmd["aliases"]) > 0:
+        out += f" ({", ".join(subcmd["aliases"])})"
     out += " " * (24 - len(out))
     out += subcmd["help"]
     return out
@@ -286,8 +288,10 @@ def program_usage_string(prg):
     """ Returns the program usage message.
     """
     return "\n".join([
-        "usage: mita [SUBCOMMAND] [FLAGS]",
+        "usage: mita [SUBCOMMAND] [FLAGS...]",
+        "",
         *program_subcommand_lines(prg),
+        "",
         *program_flags_lines(prg),
     ])
 
@@ -325,8 +329,8 @@ def mita_program():
     program_add_flag(prg, "debug", "-b", False,
                      "Debug prints and python errors")
     # aliases.
-    err = program_add_alias(prg, "ls", "list")
-    assert err == None, "we know for sure 'list' exists"
+    err = program_add_alias(prg, "list", "ls")
+    assert err == None, "we know for sure \"list\" exists"
     return prg
 
 def mita_diretory():
