@@ -279,7 +279,6 @@ def program_usage_string(prg):
     for flag in prg["flags"]:
         b += flag.build_help_line()
         b += "\n"
-    b += "\n"
     return b
 
 def mita_program():
