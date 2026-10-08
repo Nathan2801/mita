@@ -81,3 +81,40 @@ Remove task with a ID.
 python mita.py remove -i 1786144913
 ```
 
+## Command Output Format
+
+Most commands provides a simple output format to simplify the interface with
+shells, except by the `list` subcommand which has a human-oriented interface.
+
+| command | output |
+| -       | -      |
+| add     | id     |
+| done    | id(s)  |
+| todo    | id(s)  |
+| remove  | id(s)  |
+| file    | path   |
+| local   | path   |
+
+Here are some example of how to use `mita` along side with bash.
+
+```bash
+# Add a task
+id=$(mita add -d 'Buy cookies')
+echo "Task added id: $id"
+
+# Remove a task by id (when multiple return each task id in one line)
+id=$(mita done -i $id)
+echo "Task removed id: $id"
+
+# Remove all tasks and echo their ids
+ids=$(mita rm -m -p '*')
+echo "$ids" | xargs -L1 echo "Removed task id:"
+
+# Read current tasks file (json format)
+path=$(mita file)
+cat $path
+
+# Create local tasks file and read it (json format)
+path=$(mita local)
+cat $path
+```

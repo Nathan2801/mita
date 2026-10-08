@@ -426,29 +426,29 @@ def mita_add(tasks, opts):
     """
     id, task = mita_task(opts["desc"])
     tasks[id] = task 
-    loginfo("task added successfully")
+    return id
 
 def mita_remove(tasks, opts):
     """ Remove a task from tasks.
 
-        Returns None in case of success and a error message in case of error.
+        On success returns (None, remove tasks id)
+        On failure returns (error string, empty list)
     """
     filtered_tasks = list(mita_filter(tasks, opts))
     match filtered_tasks:
         case []:
-            return "multiple tasks found (hint: use -m flag)"
+            return "multiple tasks found (hint: use -m flag)", []
         case [(id, _)]:
-            printx("Removed tasks:")
-            mita_print(tasks[id], id, opts)
             del tasks[id]
         case _:
             if opts["multiple"] == False:
-                return "multiple tasks found (hint: use -m flag)"
-            printx("Removed tasks:")
+                return "multiple tasks found (hint: use -m flag)", []
             for id, _ in filtered_tasks:
-                mita_print(tasks[id], id, opts)
                 del tasks[id]
-    return None
+    filtered_tasks_id = []
+    for _, task in filtered_tasks:
+        filtered_tasks_id.append(task["id"])
+    return None, filtered_tasks_id
 
 def mita_list(tasks, opts):
     """ List tasks in tasks.
@@ -484,37 +484,25 @@ def mita_list(tasks, opts):
 def mita_set_status(tasks, opts, status):
     """ Set status of filtered tasks.
 
-        Returns None in case of success and error string in case of error.
+        On success returns (None, changed tasks ids)
+        On failure returns (error string, empty list)
     """
     filtered_tasks = list(mita_filter(tasks, opts))
-
-    def set_status(id, task):
-        task["status"] = status
-        printx("Task ", end="")
-        printx(f"#{id}", color="blue", end="")
-        printx(f" set to {status}")
-
     match filtered_tasks:
         case []:
             return "no task found"
         case [(id, task)]:
-            set_status(id, task)
+            task["status"] = status
         case _:
             if opts["multiple"] == False:
-                return "multiple task found (hint: use -m flag)"
+                err = "multiple task found (hint: use -m flag)"
+                return err, []
             for id, task in filtered_tasks:
-                set_status(id, task)
-    return None
-
-def mita_done(tasks, opts):
-    """ Set filtered tasks as done.
-    """
-    return mita_set_status(tasks, opts, DONE)
-
-def mita_todo(tasks, opts):
-    """ Set filtered tasks as todo.
-    """
-    return mita_set_status(tasks, opts, TODO)
+                task["status"] = status
+    filtered_tasks_id = []
+    for _, task in filtered_tasks:
+        filtered_tasks_id.append(task["id"])
+    return None, filtered_tasks_id
 
 def mita_print(task, id=None, opts={}):
     """ Print a inline formatted task.
@@ -564,19 +552,26 @@ def mita_process(prg, tasks):
     opts = prg["opts"]
     match opts["subcommand"]:
         case "add":
-            mita_add(tasks, opts)
+            id = mita_add(tasks, opts)
+            print(id)
             return None
         case "list":
             mita_list(tasks, opts)
             return None
         case "done":
-            err = mita_done(tasks, opts)
+            err, tasks_id = mita_set_status(tasks, opts, DONE)
+            if len(tasks_id) > 0:
+                print("\n".join(map(str, tasks_id)))
             return err
         case "todo":
-            err = mita_todo(tasks, opts)
+            err, tasks_id = mita_set_status(tasks, opts, TODO)
+            if len(tasks_id) > 0:
+                print("\n".join(map(str, tasks_id)))
             return err
         case "remove":
-            err = mita_remove(tasks, opts)
+            err, tasks_id = mita_remove(tasks, opts)
+            if len(tasks_id) > 0:
+                print("\n".join(map(str, tasks_id)))
             return err
         case "file":
             printx(mita_tasks_file())
