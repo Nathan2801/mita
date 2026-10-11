@@ -435,19 +435,18 @@ def mita_remove(tasks, opts):
         On failure returns (error string, empty list)
     """
     filtered_tasks = list(mita_filter(tasks, opts))
-    match filtered_tasks:
-        case []:
-            return "multiple tasks found (hint: use -m flag)", []
-        case [(id, _)]:
-            del tasks[id]
-        case _:
-            if opts["multiple"] == False:
-                return "multiple tasks found (hint: use -m flag)", []
-            for id, _ in filtered_tasks:
-                del tasks[id]
+
+    if len(filtered_tasks) == 0:
+        return "no task found", []
+
+    if len(filtered_tasks) > 1 and opts["multiple"] == False:
+        return "multiple tasks found (hint: use -m flag)", []
+
     filtered_tasks_id = []
-    for _, task in filtered_tasks:
+    for id, task in filtered_tasks:
+        del tasks[id]
         filtered_tasks_id.append(task["id"])
+
     return None, filtered_tasks_id
 
 def mita_list(tasks, opts):
@@ -488,19 +487,16 @@ def mita_set_status(tasks, opts, status):
         On failure returns (error string, empty list)
     """
     filtered_tasks = list(mita_filter(tasks, opts))
-    match filtered_tasks:
-        case []:
-            return "no task found"
-        case [(id, task)]:
-            task["status"] = status
-        case _:
-            if opts["multiple"] == False:
-                err = "multiple task found (hint: use -m flag)"
-                return err, []
-            for id, task in filtered_tasks:
-                task["status"] = status
+
+    if len(filtered_tasks) == 0:
+        return "no task found", []
+
+    if len(filtered_tasks) > 1 and opts["multiple"] == False:
+        return "multiple tasks found (hint: use -m flag)", []
+
     filtered_tasks_id = []
     for _, task in filtered_tasks:
+        task["status"] = status
         filtered_tasks_id.append(task["id"])
     return None, filtered_tasks_id
 
