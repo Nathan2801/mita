@@ -612,6 +612,7 @@ def main(args):
             raise Exception(err)
 
         mita_save_tasks(tasks, file)
+        return 0
     except Exception as e:
         mita_debug = os.getenv("MITA_DEBUG")
         if mita_debug == "1":
@@ -619,6 +620,7 @@ def main(args):
 
         logerror(e)
         printx(program_usage_string(prg))
+        return 1
 
 if __name__ == "__main__":
     exit(main(sys.argv))
