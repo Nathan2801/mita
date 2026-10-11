@@ -235,7 +235,7 @@ def program_check_required_flags(prg):
     for flagname in subcmd.required_flags:
         if opts[flagname] == None:
             flag = program_find_flag(prg, flagname)
-            return False, f"missing required flag: {flag}"
+            return False, f"missing required flag: {flag.long}/{flag.short}"
 
     require_one_of = subcmd.require_one_of
     if len(require_one_of) > 0:
